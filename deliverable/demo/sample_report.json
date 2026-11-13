@@ -1,0 +1,186 @@
+{
+  "architectures": [
+    {
+      "confidence_notes": [],
+      "dependencies": [
+        {
+          "certainty": "declared-in-load-commands",
+          "kind": "load_dylib",
+          "path": "/usr/lib/libSystem.B.dylib"
+        }
+      ],
+      "encryption": {
+        "active": true,
+        "command": "LC_ENCRYPTION_INFO_64",
+        "cryptid": 1,
+        "cryptoff": 16384,
+        "cryptsize": 16384,
+        "declared": true,
+        "diagnostics": [],
+        "readable_window": [
+          16384,
+          32768
+        ]
+      },
+      "entry": {
+        "certainty": "encrypted-bytes-unreadable",
+        "entryoff": 16384,
+        "instructions_readable": false,
+        "location_known": true,
+        "source": "LC_MAIN"
+      },
+      "identity": {
+        "cpusubtype": "CPU_SUBTYPE_ARM64_ALL",
+        "cputype": 16777228,
+        "endian": "<",
+        "filetype": "execute",
+        "flags": [
+          "MH_PIE",
+          "MH_NO_HEAP_EXECUTION"
+        ],
+        "width": "64-bit"
+      },
+      "linkedit": [
+        {
+          "clear_bytes": 256,
+          "command": "LC_DYLD_INFO_ONLY:bind",
+          "coverage": "fully-clear",
+          "encrypted_bytes": 0,
+          "parseable": true,
+          "range": [
+            49664,
+            49920
+          ]
+        },
+        {
+          "clear_bytes": 256,
+          "command": "LC_DYLD_INFO_ONLY:export",
+          "coverage": "fully-clear",
+          "encrypted_bytes": 0,
+          "parseable": true,
+          "range": [
+            49664,
+            49920
+          ]
+        },
+        {
+          "clear_bytes": 512,
+          "command": "LC_CODE_SIGNATURE",
+          "coverage": "fully-clear",
+          "encrypted_bytes": 0,
+          "parseable": true,
+          "range": [
+            49920,
+            50432
+          ]
+        }
+      ],
+      "range_conflicts": [],
+      "segments": [
+        {
+          "clear_bytes": 16384,
+          "coverage": "partially-encrypted",
+          "encrypted_bytes": 16384,
+          "file_range": [
+            0,
+            32768
+          ],
+          "initprot": 5,
+          "maxprot": 5,
+          "name": "__TEXT",
+          "sections": [
+            {
+              "clear": 0,
+              "encrypted": 512,
+              "entropy_bps": 7.616,
+              "name": "__text",
+              "state": "fully-encrypted"
+            },
+            {
+              "clear": 0,
+              "encrypted": 512,
+              "entropy_bps": 7.613,
+              "name": "__cstring",
+              "state": "fully-encrypted"
+            }
+          ],
+          "vmaddr": 4294967296,
+          "vmsize": 32768
+        },
+        {
+          "clear_bytes": 16384,
+          "coverage": "fully-clear",
+          "encrypted_bytes": 0,
+          "file_range": [
+            32768,
+            49152
+          ],
+          "initprot": 3,
+          "maxprot": 3,
+          "name": "__DATA",
+          "sections": [
+            {
+              "clear": 128,
+              "encrypted": 0,
+              "entropy_bps": 0.0,
+              "name": "__got",
+              "state": "fully-clear"
+            },
+            {
+              "clear": 64,
+              "encrypted": 0,
+              "entropy_bps": 1.5,
+              "name": "__data",
+              "state": "fully-clear"
+            },
+            {
+              "clear": 0,
+              "encrypted": 0,
+              "name": "__bss",
+              "state": "zerofill/no-file-bytes"
+            }
+          ],
+          "vmaddr": 4295000064,
+          "vmsize": 16640
+        },
+        {
+          "clear_bytes": 16384,
+          "coverage": "fully-clear",
+          "encrypted_bytes": 0,
+          "file_range": [
+            49152,
+            65536
+          ],
+          "initprot": 1,
+          "maxprot": 1,
+          "name": "__LINKEDIT",
+          "sections": [],
+          "vmaddr": 4295016448,
+          "vmsize": 16384
+        }
+      ],
+      "symbols": {
+        "certainty": "fully-readable",
+        "names_resolvable": true,
+        "nsyms": 3,
+        "present": true,
+        "sample_names": [
+          "_demo_entry",
+          "_demo_local_cstring",
+          "_demo_undefined"
+        ],
+        "strtab_coverage": "fully-clear",
+        "strtab_range": [
+          49408,
+          49536
+        ],
+        "symtab_coverage": "fully-clear",
+        "symtab_range": [
+          49152,
+          49200
+        ]
+      }
+    }
+  ],
+  "fat": false
+}
