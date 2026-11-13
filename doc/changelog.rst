@@ -1,6 +1,16 @@
 Release history
 ===============
 
+macholib 1.16.5
+---------------
+
+* Added :mod:`macholib.code_signature`, a read-only analyzer for the
+  embedded ``LC_CODE_SIGNATURE`` SuperBlob and its CodeDirectories.  It
+  validates sub-blob ranges, hash type, page size, code limit and page-digest
+  counts, recomputes per-page digests, reports multiple CodeDirectories
+  separately (including fat slices, which use their own slice-relative
+  offsets), and explicitly leaves CMS signature verification unperformed.
+
 macholib 1.16.4
 ---------------
 
