@@ -20,6 +20,7 @@ from macholib.ptypes import (
     p_long,
     p_short,
     p_uint8,
+    p_uint16,
     p_uint32,
     p_uint64,
     p_ulong,
@@ -1040,6 +1041,7 @@ class dysymtab_command(Structure):
 
 INDIRECT_SYMBOL_LOCAL = 0x80000000
 INDIRECT_SYMBOL_ABS = 0x40000000
+INDIRECT_SYMBOL_MASK = INDIRECT_SYMBOL_LOCAL | INDIRECT_SYMBOL_ABS
 
 
 class dylib_table_of_contents(Structure):
@@ -1442,7 +1444,7 @@ LC_NAMES = {
 
 
 # this is another union.
-class n_un(p_int32):
+class n_un(p_uint32):
     pass
 
 
@@ -1457,13 +1459,13 @@ class nlist(Structure):
 
 
 class nlist_64(Structure):
-    _fields_ = [
+    _fields_ = (
         ("n_un", n_un),
         ("n_type", p_uint8),
         ("n_sect", p_uint8),
-        ("n_desc", p_short),
-        ("n_value", p_int64),
-    ]
+        ("n_desc", p_uint16),
+        ("n_value", p_uint64),
+    )
 
 
 N_STAB = 0xE0

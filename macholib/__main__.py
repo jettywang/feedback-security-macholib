@@ -4,6 +4,7 @@ import os
 import sys
 
 from macholib import macho_dump, macho_standalone
+from macholib.symbols import report_symbols
 from macholib.util import is_platform_file
 
 gCommand = None
@@ -46,6 +47,7 @@ def print_usage(fp):
     print("  python -mmacholib [help|--help]", file=fp)
     print("  python -mmacholib dump FILE ...", file=fp)
     print("  python -mmacholib find DIR ...", file=fp)
+    print("  python -mmacholib symbols FILE ...", file=fp)
     print("  python -mmacholib standalone DIR ...", file=fp)
 
 
@@ -62,6 +64,15 @@ def main():
 
     elif gCommand == "find":
         walk_tree(lambda fp, path: print(path, file=fp), sys.argv[2:])
+
+    elif gCommand == "symbols":
+        status = 0
+        for path in sys.argv[2:]:
+            if not is_platform_file(path):
+                continue
+            if report_symbols(path, sys.stdout):
+                status = 1
+        sys.exit(status)
 
     elif gCommand == "standalone":
         for dn in sys.argv[2:]:
