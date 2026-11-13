@@ -32,6 +32,7 @@ Reference Guide
    SymbolTable
    dyld
    dylib
+   offline
    framework
    macho_o
    ptypes

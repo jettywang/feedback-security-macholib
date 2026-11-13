@@ -1,6 +1,16 @@
 Release history
 ===============
 
+macholib 1.16.5
+---------------
+
+* Add :mod:`macholib.offline`: offline dyld-style resolution of
+  ``@rpath``/``@loader_path``/``@executable_path`` install names with a
+  caller-supplied launch context and file-existence probe, per-loader
+  run-path contexts, and full search-order reporting.
+
+* Add ``MachOHeader.walkRpaths()`` to iterate ``LC_RPATH`` commands.
+
 macholib 1.16.4
 ---------------
 

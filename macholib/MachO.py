@@ -21,6 +21,7 @@ from .mach_o import (
     LC_PREBOUND_DYLIB,
     LC_REEXPORT_DYLIB,
     LC_REGISTRY,
+    LC_RPATH,
     LC_SEGMENT,
     LC_SEGMENT_64,
     LC_SYMTAB,
@@ -362,6 +363,18 @@ class MachOHeader(object):
                 yield idx, name, data[
                     ofs : data.find(b"\x00", ofs)  # noqa: E203
                 ].decode(sys.getfilesystemencoding())
+
+    def walkRpaths(self):
+        """
+        for all LC_RPATH commands
+        yield (command_index, path)
+        """
+        for idx, (lc, cmd, data) in enumerate(self.commands):
+            if lc.cmd == LC_RPATH:
+                ofs = cmd.path - sizeof(lc.__class__) - sizeof(cmd.__class__)
+                yield idx, data[ofs : data.find(b"\x00", ofs)].decode(  # noqa: E203
+                    sys.getfilesystemencoding()
+                )
 
     def rewriteInstallNameCommand(self, loadcmd):
         """Rewrite the load command of this dylib"""
