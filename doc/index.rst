@@ -27,6 +27,7 @@ Reference Guide
    :maxdepth: 1
 
    MachO
+   thread_state
    MachoOGraph
    MachoOStandalone
    SymbolTable

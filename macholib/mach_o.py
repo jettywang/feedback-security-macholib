@@ -909,10 +909,16 @@ class dylinker_command(Structure):
 class thread_command(Structure):
     _fields_ = (("flavor", p_uint32), ("count", p_uint32))
 
+    # Set by MachOHeader after reading an LC_THREAD or LC_UNIXTHREAD
+    # command; contains a macholib.thread_state.ThreadStateCommand.
+    thread_states = None
+
     def describe(self):
         s = {}
         s["flavor"] = int(self.flavor)
         s["count"] = int(self.count)
+        if self.thread_states is not None:
+            s["thread_states"] = self.thread_states.describe()
         return s
 
 

@@ -1,6 +1,15 @@
 Release history
 ===============
 
+macholib 1.17
+-------------
+
+* Add read-only decoding of ``LC_THREAD``/``LC_UNIXTHREAD`` thread states
+  in ``macholib.thread_state``.  CPU/flavor specific register layouts are
+  decoded with the header byte order and the 32-bit word count unit;
+  unsupported states are kept as raw bytes and truncated states raise
+  ``ThreadStateError`` instead of being zero-filled.
+
 macholib 1.16.4
 ---------------
 

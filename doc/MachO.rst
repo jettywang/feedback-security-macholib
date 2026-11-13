@@ -33,3 +33,26 @@ library on MacOS X.
       Added the *allow_unknown_load_commands* argument.
 
 .. note:: more information will be added later
+
+Thread states
+-------------
+
+``LC_THREAD`` and ``LC_UNIXTHREAD`` commands may contain several
+``(flavor, count)`` pairs.  ``MachOHeader`` decodes them read-only and
+attaches a :class:`macholib.thread_state.ThreadStateCommand` to the
+``thread_states`` attribute of the ``thread_command`` instance in
+``commands``.  ``count`` is a number of 32-bit words, also for 64-bit
+register layouts, and both the pair headers and the register values use
+the byte order of the Mach-O header.
+
+Only documented CPU/flavor combinations are decoded (x86 and x86-64
+thread/exception states, 32-bit and 64-bit ARM thread and exception
+states).  Other states are kept as raw bytes.  A truncated state, a
+count that is too small for a known layout, or a trailing partial
+``(flavor, count)`` pair raises :class:`macholib.thread_state.ThreadStateError`
+with the payload offset of the rejected record; no register value is
+ever invented by padding.
+
+Use :meth:`ThreadStateCommand.describe` for a JSON-friendly summary.
+It records ``pc`` and ``sp`` availability together with the flavor,
+state index and field offset each value came from.

@@ -24,6 +24,8 @@ from .mach_o import (
     LC_SEGMENT,
     LC_SEGMENT_64,
     LC_SYMTAB,
+    LC_THREAD,
+    LC_UNIXTHREAD,
     MH_CIGAM,
     MH_CIGAM_64,
     MH_FILETYPE_SHORTNAMES,
@@ -40,6 +42,7 @@ from .mach_o import (
     section_64,
 )
 from .ptypes import sizeof
+from .thread_state import ThreadStateError, parse_thread_states
 
 try:
     from macholib.compat import bytes
@@ -273,6 +276,24 @@ class MachOHeader(object):
                 read_bytes += cmd_load.cmdsize
                 continue
 
+            if cmd_load.cmd in (LC_THREAD, LC_UNIXTHREAD):
+                # The thread command is a sequence of (flavor, count) pairs
+                # followed by their state data; the thread_command fields are
+                # the first pair.  Check the declared size before reading the
+                # pair so that a bogus cmdsize is reported with its offset.
+                minimum_size = sizeof(load_command) + sizeof(klass)
+                if cmd_load.cmdsize < minimum_size:
+                    raise ThreadStateError(
+                        "thread command at command index %d is too small: "
+                        "cmdsize %d, header and the first flavor/count pair "
+                        "need %d bytes"
+                        % (i, cmd_load.cmdsize, minimum_size),
+                        offset=0,
+                        needed=8,
+                        available=max(0, cmd_load.cmdsize - sizeof(load_command)),
+                        command_index=i,
+                    )
+
             cmd_cmd = klass.from_fileobj(fh, **kw)
 
             if cmd_load.cmd == LC_ID_DYLIB:
@@ -333,6 +354,37 @@ class MachOHeader(object):
             #    fh.seek(cmd_cmd.stroff)
             #    cmd_data = fh.read(cmd_cmd.strsize)
             #    fh.seek(c)
+
+            elif cmd_load.cmd in (LC_THREAD, LC_UNIXTHREAD):
+                # The thread command is a sequence of (flavor, count) pairs
+                # followed by their state data; the thread_command fields
+                # already read above are the first pair.  Decode the whole
+                # sequence read-only while keeping the bytes for lossless
+                # writing.
+                data_size = cmd_load.cmdsize - sizeof(load_command) - sizeof(klass)
+                cmd_data = fh.read(data_size)
+                if len(cmd_data) != data_size:
+                    raise ThreadStateError(
+                        "thread command at command index %d is truncated: "
+                        "cmdsize %d promises %d payload byte(s) after the "
+                        "flavor/count pair, only %d are present"
+                        % (i, cmd_load.cmdsize, data_size, len(cmd_data)),
+                        offset=0,
+                        data_offset=8,
+                        needed=data_size,
+                        available=len(cmd_data),
+                        command_index=i,
+                    )
+                try:
+                    cmd_cmd.thread_states = parse_thread_states(
+                        cmd_cmd.to_str() + cmd_data,
+                        cputype=header.cputype,
+                        endian=self.endian,
+                        cmd=cmd_load.cmd,
+                    )
+                except ThreadStateError as exc:
+                    exc.command_index = i
+                    raise
 
             else:
                 # data is a raw str
