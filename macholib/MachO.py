@@ -88,7 +88,25 @@ def lc_str_value(offset, cmd_info):
     cmd_load, cmd_cmd, cmd_data = cmd_info
 
     offset -= sizeof(cmd_load) + sizeof(cmd_cmd)
+    if offset < 0 or offset > len(cmd_data):
+        return b""
     return cmd_data[offset:].strip(b"\x00")
+
+
+def _read_command_data(fh, size, description):
+    """
+    Read exactly *size* bytes for a load command, raising ValueError when
+    the command or file ends before the requested data is available.
+    """
+    if size < 0:
+        raise ValueError("%s has a negative size: %d" % (description, size))
+    data = fh.read(size)
+    if len(data) != size:
+        raise ValueError(
+            "%s is truncated: expected %d bytes, got %d"
+            % (description, size, len(data))
+        )
+    return data
 
 
 class MachO(object):
@@ -126,24 +144,72 @@ class MachO(object):
 
     def load(self, fh):
         assert fh.tell() == 0
+        fh.seek(0, 2)
+        size = fh.tell()
+        fh.seek(0)
+        if size < 4:
+            raise ValueError(
+                "File is too small to be a Mach-O file: %d bytes" % (size,)
+            )
         header = struct.unpack(">I", fh.read(4))[0]
         fh.seek(0)
         if header in (FAT_MAGIC, FAT_MAGIC_64):
             self.load_fat(fh)
         else:
-            fh.seek(0, 2)
-            size = fh.tell()
-            fh.seek(0)
             self.load_header(fh, 0, size)
 
     def load_fat(self, fh):
+        fh.seek(0, 2)
+        file_size = fh.tell()
+        if file_size < sizeof(fat_header):
+            raise ValueError("Fat header is truncated: file size %d" % (file_size,))
+        fh.seek(0)
         self.fat = fat_header.from_fileobj(fh)
         if self.fat.magic == FAT_MAGIC:
-            archs = [fat_arch.from_fileobj(fh) for i in range(self.fat.nfat_arch)]
+            arch_cls = fat_arch
         elif self.fat.magic == FAT_MAGIC_64:
-            archs = [fat_arch64.from_fileobj(fh) for i in range(self.fat.nfat_arch)]
+            arch_cls = fat_arch64
         else:
-            raise ValueError("Unknown fat header magic: %r" % (self.fat.magic))
+            raise ValueError("Unknown fat header magic: %r" % (self.fat.magic,))
+
+        available_archs = (file_size - sizeof(fat_header)) // sizeof(arch_cls)
+        if self.fat.nfat_arch < 1:
+            raise ValueError("Fat header reports no architectures")
+        if self.fat.nfat_arch > available_archs:
+            raise ValueError(
+                "Fat header is truncated: reports %d architectures, only %d "
+                "fit in the file" % (self.fat.nfat_arch, available_archs)
+            )
+
+        archs = [arch_cls.from_fileobj(fh) for i in range(self.fat.nfat_arch)]
+        table_end = sizeof(fat_header) + len(archs) * sizeof(arch_cls)
+
+        for index, arch in enumerate(archs):
+            if arch.offset < table_end:
+                raise ValueError(
+                    "Fat architecture %d overlaps the fat header: offset %d, "
+                    "header ends at %d" % (index, arch.offset, table_end)
+                )
+            if arch.size < sizeof(mach_header):
+                raise ValueError(
+                    "Fat architecture %d is too small: %d bytes" % (index, arch.size)
+                )
+            if arch.offset + arch.size > file_size:
+                raise ValueError(
+                    "Fat architecture %d extends past the end of the file: "
+                    "slice [%d, %d), file size %d"
+                    % (index, arch.offset, arch.offset + arch.size, file_size)
+                )
+
+        ranges = sorted((arch.offset, arch.offset + arch.size) for arch in archs)
+        previous_end = table_end
+        for start, end in ranges:
+            if start < previous_end:
+                raise ValueError(
+                    "Fat slices overlap: slice [%d, %d) starts before previous "
+                    "end %d" % (start, end, previous_end)
+                )
+            previous_end = end
 
         for arch in archs:
             self.load_header(fh, arch.offset, arch.size)
@@ -239,6 +305,11 @@ class MachOHeader(object):
         )
 
     def load(self, fh):
+        if self.size < sizeof(self.mach_header):
+            raise ValueError(
+                "Mach-O header is truncated: slice size %d, header requires %d"
+                % (self.size, sizeof(self.mach_header))
+            )
         fh = fileview(fh, self.offset, self.size)
         fh.seek(0)
 
@@ -254,11 +325,35 @@ class MachOHeader(object):
 
         self.filetype = self.get_filetype_shortname(header.filetype)
 
+        header_size = sizeof(self.mach_header)
+        command_area = max(0, self.size - header_size)
+        if header.sizeofcmds > command_area:
+            raise ValueError(
+                "Load command area is truncated: header reports %d bytes, "
+                "only %d available" % (header.sizeofcmds, command_area)
+            )
+
         read_bytes = 0
         low_offset = sys.maxsize
         for i in range(header.ncmds):
+            remaining = header.sizeofcmds - read_bytes
+            if remaining < sizeof(load_command):
+                raise ValueError(
+                    "Load command %d is truncated: %d bytes remain in the "
+                    "command area" % (i, remaining)
+                )
+
             # read the load command
             cmd_load = load_command.from_fileobj(fh, **kw)
+            if cmd_load.cmdsize < sizeof(load_command):
+                raise ValueError(
+                    "Load command %d has invalid cmdsize %d" % (i, cmd_load.cmdsize)
+                )
+            if cmd_load.cmdsize > remaining:
+                raise ValueError(
+                    "Load command %d has cmdsize %d, only %d bytes remain in "
+                    "the command area" % (i, cmd_load.cmdsize, remaining)
+                )
 
             # read the specific command
             klass = LC_REGISTRY.get(cmd_load.cmd, None)
@@ -268,10 +363,19 @@ class MachOHeader(object):
                 # No load command in the registry, so append the load command itself
                 # instead of trying to deserialize the data after the header.
                 data_size = cmd_load.cmdsize - sizeof(load_command)
-                cmd_data = fh.read(data_size)
+                cmd_data = _read_command_data(
+                    fh, data_size, "Unknown load command %d" % (cmd_load.cmd,)
+                )
                 cmd.append((cmd_load, cmd_load, cmd_data))
                 read_bytes += cmd_load.cmdsize
                 continue
+
+            min_size = sizeof(load_command) + sizeof(klass)
+            if cmd_load.cmdsize < min_size:
+                raise ValueError(
+                    "Load command %d (0x%x) has cmdsize %d, smaller than its "
+                    "structure size %d" % (i, cmd_load.cmd, cmd_load.cmdsize, min_size)
+                )
 
             cmd_cmd = klass.from_fileobj(fh, **kw)
 
@@ -359,9 +463,14 @@ class MachOHeader(object):
             if shouldRelocateCommand(lc.cmd):
                 name = _RELOCATABLE_NAMES[lc.cmd]
                 ofs = cmd.name - sizeof(lc.__class__) - sizeof(cmd.__class__)
-                yield idx, name, data[
-                    ofs : data.find(b"\x00", ofs)  # noqa: E203
-                ].decode(sys.getfilesystemencoding())
+                if ofs < 0 or ofs > len(data):
+                    value = b""
+                else:
+                    end = data.find(b"\x00", ofs)
+                    if end == -1:
+                        end = len(data)
+                    value = data[ofs:end]
+                yield idx, name, value.decode(sys.getfilesystemencoding())
 
     def rewriteInstallNameCommand(self, loadcmd):
         """Rewrite the load command of this dylib"""
